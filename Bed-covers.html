@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>دفتر الطلبات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --paper:#FFF5F9; --surface:#FFFFFF; --ink:#3B1230; --ink-2:#8A5A76; --line:#F6D3E3;
+  --mark:#FFC9DF; --gain:#1E7D52; --loss:#C0362C; --accent:#D63384; --on-accent:#FFFFFF; --soft:#FDE3EE;
+  --shadow:0 10px 30px rgba(214,51,132,.22);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#1E0F18; --surface:#2A1522; --ink:#FBE7F0; --ink-2:#D2A3BC; --line:#4A2639;
+    --mark:rgba(240,98,160,.38); --gain:#5BD19A; --loss:#F48A80; --accent:#F06AA8; --on-accent:#1E0F18; --soft:#3A1A2C;
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1E0F18; --surface:#2A1522; --ink:#FBE7F0; --ink-2:#D2A3BC; --line:#4A2639;
+  --mark:rgba(240,98,160,.38); --gain:#5BD19A; --loss:#F48A80; --accent:#F06AA8; --on-accent:#1E0F18; --soft:#3A1A2C;
+  --shadow:0 10px 30px rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans Arabic",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
+  font-size:16px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+.num{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.wrap{max-width:720px;margin:0 auto;padding:16px 16px 110px}
+header h1{font-size:1.5rem;font-weight:700;margin:4px 0 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.xgroup{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.xbtn{font:inherit;font-size:.88rem;font-weight:600;background:var(--surface);color:var(--accent);border:1.5px solid var(--accent);border-radius:999px;padding:7px 14px;cursor:pointer}
+.hl{background:linear-gradient(transparent 38%,var(--mark) 38%,var(--mark) 90%,transparent 90%);padding:0 .15em}
+
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  font:inherit;font-size:1rem;padding:10px 18px;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.chip.add{border-style:dashed;color:var(--ink-2)}
+
+.summary{margin:16px 0 8px;background:var(--soft);border-radius:20px;padding:18px 18px 8px}
+.summary .net{font-size:2.6rem;font-weight:700;line-height:1.1;margin:2px 0 10px}
+.summary .lead{color:var(--ink-2);font-size:.95rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.linkbtn{background:none;border:0;color:var(--accent);font:inherit;font-size:.9rem;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line)}
+.stats div{padding:10px 4px}
+.stats div+div{border-inline-start:1px solid var(--line);padding-inline-start:10px}
+.stats small{display:block;color:var(--ink-2);font-size:.78rem}
+.stats b{font-size:1.05rem;font-weight:600}
+@media (max-width:420px){.stats{grid-template-columns:repeat(2,1fr)}
+  .stats div:nth-child(3){border-inline-start:0;padding-inline-start:4px}
+  .stats div:nth-child(n+3){border-top:1px solid var(--line)}}
+
+h2{font-size:1rem;font-weight:600;color:var(--ink-2);margin:22px 0 6px}
+.orders{list-style:none;margin:0;padding:0}
+.order{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;
+  padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.order:focus-visible,.chip:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.badge{width:36px;height:36px;border:1.5px solid var(--accent);color:var(--accent);border-radius:8px;display:grid;place-items:center;font-weight:600;font-size:.95rem}
+.who b{display:block;font-weight:600}
+.who small{color:var(--ink-2);font-size:.85rem}
+.money{text-align:start}
+.money .p{font-weight:700;font-size:1.05rem}
+.money small{display:block;color:var(--ink-2);font-size:.8rem}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+.seg button{font:inherit;padding:11px 6px;border-radius:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+details{grid-column:1/-1;border-top:1px dashed var(--line);padding-top:8px}
+details summary{cursor:pointer;color:var(--accent);font-size:.92rem;padding:4px 0}
+details .grid{margin-top:8px}
+.big input{font-size:1.15rem;padding:12px}
+.tag{font-size:.75rem;padding:1px 7px;border-radius:5px;border:1px solid currentColor;margin-inline-start:6px}
+.tag.ret{color:var(--loss)} .tag.pend{color:var(--ink-2)}
+.gain{color:var(--gain)} .loss{color:var(--loss)}
+.empty{padding:28px 4px;color:var(--ink-2)}
+.empty button{margin-top:10px}
+
+.fab{position:fixed;inset-inline-start:50%;transform:translateX(50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));
+  background:var(--accent);color:var(--on-accent);border:0;font:inherit;font-weight:600;font-size:1rem;
+  padding:14px 26px;border-radius:999px;box-shadow:var(--shadow);cursor:pointer}
+.btn{background:var(--accent);color:var(--on-accent);border:0;font:inherit;font-weight:600;padding:13px 22px;border-radius:12px;cursor:pointer;font-size:1.02rem}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:transparent;color:var(--loss);border:1px solid var(--loss)}
+
+.banner{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.88rem;color:var(--ink-2);margin-bottom:12px}
+
+.scrim{position:fixed;inset:0;background:rgba(10,14,40,.45);display:none;z-index:20}
+.sheet{position:fixed;inset-inline:0;bottom:0;z-index:21;background:var(--surface);color:var(--ink);
+  border-radius:18px 18px 0 0;box-shadow:var(--shadow);max-height:92vh;overflow:auto;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(105%);transition:transform .22s ease;
+  max-width:720px;margin:0 auto}
+.sheet.open{transform:none}
+.scrim.open{display:block}
+@media (prefers-reduced-motion:reduce){.sheet{transition:none}}
+.sheet h3{margin:0 0 12px;font-size:1.15rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.grid .full{grid-column:1/-1}
+label{display:block;font-size:.84rem;color:var(--ink-2)}
+input,select{width:100%;margin-top:4px;font:inherit;color:var(--ink);background:var(--paper);
+  border:1px solid var(--line);border-radius:9px;padding:10px 11px}
+input[type=number]{direction:ltr;text-align:right}
+.preview{margin:14px 0;padding:10px 12px;border-radius:10px;background:var(--paper);font-size:.95rem}
+.preview b{font-size:1.2rem}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.actions .spacer{flex:1}
+.err{color:var(--loss);font-size:.85rem;min-height:1.2em;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span>دفتر الطلبات</span><span class="xgroup"><button class="xbtn" id="ximport">رفع Excel</button><button class="xbtn" id="xport">تنزيل Excel</button></span></h1>
+    <input type="file" id="xfile" accept=".xlsx,.xls" hidden>
+    <div id="banner"></div>
+    <nav class="chips" id="chips" aria-label="الحملات"></nav>
+  </header>
+  <main>
+    <section class="summary" id="summary"></section>
+    <h2 id="ordersTitle">الطلبات</h2>
+    <ul class="orders" id="orders"></ul>
+  </main>
+</div>
+<button class="fab" id="fab">+ سجّل طلب</button>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const fmt = n => (Math.round((+n||0)*100)/100).toLocaleString('en-US');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const STATUS = {pending:'في الطريق', done:'اتسلّم', returned:'مرتجع'};
+
+let state = {campaigns:[], orders:[], selected:'all'};
+let store = null;
+
+/* ---------- profit rules ---------- */
+function orderProfit(o){
+  const cost = +o.cost || 0;
+  if(o.status === 'returned') return -cost;
+  return (+o.sale||0) - (+o.purchase||0) - cost;
+}
+function totals(orders, campaigns){
+  const live = orders.filter(o => o.status !== 'returned');
+  const sales = live.reduce((a,o)=>a+(+o.sale||0),0);
+  const profit = orders.reduce((a,o)=>a+orderProfit(o),0);
+  const ads = campaigns.reduce((a,c)=>a+(+c.adCost||0),0);
+  return {count:orders.length, sales, profit, ads, net:profit-ads};
+}
+
+/* ---------- storage: claude db, with local fallback ---------- */
+function localStore(){
+  const KEY='orders-ledger-v1';
+  let data={campaigns:[],orders:[]};
+  try{ const raw=localStorage.getItem(KEY); if(raw) data=JSON.parse(raw); }catch(e){}
+  let cb=()=>{};
+  const persist=()=>{ try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){} cb(data); };
+  const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  return {
+    subscribe(fn){ cb=fn; fn(data); },
+    async save(kind,obj){ const list=data[kind]; if(!obj.id) obj.id=id(); const i=list.findIndex(x=>x.id===obj.id); if(i>=0) list[i]=obj; else list.push(obj); persist(); return obj.id; },
+    async remove(kind,id){ data[kind]=data[kind].filter(x=>x.id!==id); persist(); }
+  };
+}
+function dbStore(db, uid){
+  const root = db.doc('data/users/'+uid+'/ledger');
+  const cols = {campaigns: root.collection('campaigns'), orders: root.collection('orders')};
+  const data = {campaigns:[], orders:[]};
+  return {
+    subscribe(fn, onErr){
+      for(const k of ['campaigns','orders']){
+        cols[k].onSnapshot(snap=>{
+          data[k] = snap.docs.map(d=>({id:d.id, ...d.data()}));
+          fn(data);
+        }, e=>onErr && onErr(e));
+      }
+    },
+    async save(kind,obj){
+      const {id, ...body} = obj;
+      const ref = id ? cols[kind].doc(id) : cols[kind].doc();
+      await ref.set(body);
+      return ref.id;
+    },
+    async remove(kind,id){ await cols[kind].doc(id).delete(); }
+  };
+}
+
+function setBanner(text){ $('#banner').innerHTML = text ? '<div class="banner">'+esc(text)+'</div>' : ''; }
+
+async function init(){
+  render();
+  let db=null, uid=null;
+  try{
+    if(window.claude && typeof window.claude.use==='function'){
+      db = await window.claude.use('db');
+      const user = await window.claude.use('user');
+      uid = user ? await user.id() : null;
+    }
+  }catch(e){ db=null; }
+  if(db && uid){
+    store = dbStore(db, uid);
+  }else{
+    store = localStore();
+    setBanner('البيانات محفوظة على الموبايل ده. نزّل Excel كل فترة كنسخة احتياطية.');
+  }
+  store.subscribe(d=>{ state.campaigns=d.campaigns; state.orders=d.orders; render(); },
+    ()=>setBanner('الاتصال بالتخزين وقف. اعمل تحديث للصفحة.'));
+}
+
+/* ---------- render ---------- */
+function sortedCampaigns(){
+  return [...state.campaigns].sort((a,b)=>(b.start||'').localeCompare(a.start||'') || (b.createdAt||0)-(a.createdAt||0));
+}
+function render(){
+  if(state.selected!=='all' && !state.campaigns.find(c=>c.id===state.selected)) state.selected='all';
+  const camps = sortedCampaigns();
+  const chips = [`<button class="chip" aria-pressed="${state.selected==='all'}" data-sel="all">كل الحملات</button>`]
+    .concat(camps.map(c=>`<button class="chip" aria-pressed="${state.selected===c.id}" data-sel="${esc(c.id)}">${esc(c.name)}</button>`))
+    .concat(['<button class="chip add" id="addCamp">+ حملة</button>']);
+  $('#chips').innerHTML = chips.join('');
+
+  const sel = state.selected==='all' ? null : state.campaigns.find(c=>c.id===state.selected);
+  const orders = state.orders.filter(o => !sel || o.campaignId===sel.id)
+    .sort((a,b)=>(+b.num||0)-(+a.num||0) || (b.createdAt||0)-(a.createdAt||0));
+  const t = totals(orders, sel ? [sel] : state.campaigns);
+  const netCls = t.net<0 ? 'loss' : '';
+  const lead = sel
+    ? `<span>${sel.start?esc(dateTxt(sel.start)):''}${sel.end?' إلى '+esc(dateTxt(sel.end)):''}</span><button class="linkbtn" id="editCamp">تعديل الحملة</button>`
+    : `<span>${state.campaigns.length} حملة</span>`;
+  $('#summary').innerHTML = `
+    <div class="lead">كسبت صافي بعد الإعلان ${lead}</div>
+    <div class="net num ${netCls}"><span class="hl">${fmt(t.net)}</span></div>
+    <div class="stats">
+      <div><small>الطلبات</small><b class="num">${t.count}</b></div>
+      <div><small>المبيعات</small><b class="num">${fmt(t.sales)}</b></div>
+      <div><small>مكسب قبل الإعلان</small><b class="num">${fmt(t.profit)}</b></div>
+      <div><small>تكلفة الإعلان</small><b class="num">${fmt(t.ads)}</b></div>
+    </div>`;
+
+  $('#ordersTitle').textContent = sel ? 'طلبات '+sel.name : 'كل الطلبات';
+  if(!orders.length){
+    $('#orders').innerHTML = state.campaigns.length
+      ? `<li class="empty">مفيش طلبات هنا لسه. اضغط «سجّل طلب» تحت.</li>`
+      : `<li class="empty">ابدأ بإضافة أول حملة، وبعدين سجّل طلباتها.<br><button class="btn" id="firstCamp">إضافة حملة</button></li>`;
+  }else{
+    const cname = id => (state.campaigns.find(c=>c.id===id)||{}).name || '';
+    $('#orders').innerHTML = orders.map(o=>{
+      const p = orderProfit(o);
+      const tag = o.status==='returned' ? '<span class="tag ret">مرتجع</span>' : o.status==='pending' ? '<span class="tag pend">في الطريق</span>' : '';
+      const sub = [o.city, !sel ? cname(o.campaignId) : ''].filter(Boolean).map(esc).join('، ');
+      return `<li class="order" tabindex="0" data-id="${esc(o.id)}">
+        <span class="badge num">${esc(o.num ?? '')}</span>
+        <span class="who"><b>${esc(o.customer||'بدون اسم')}${tag}</b><small>${sub}</small></span>
+        <span class="money"><span class="p num ${p<0?'loss':'gain'}">${fmt(p)}</span><small>بيع <span class="num">${fmt(o.sale)}</span></small></span>
+      </li>`;
+    }).join('');
+  }
+  $('#fab').style.display = state.campaigns.length ? '' : 'none';
+}
+function dateTxt(d){ try{ return new Date(d+'T00:00:00').toLocaleDateString('ar-EG-u-nu-latn',{day:'numeric',month:'short'}); }catch(e){ return d; } }
+
+/* ---------- sheet ---------- */
+function openSheet(html, onMount){
+  $('#sheet').innerHTML = html;
+  $('#scrim').classList.add('open'); $('#sheet').classList.add('open');
+  onMount && onMount();
+  const first = $('#sheet').querySelector('input,select'); first && setTimeout(()=>first.focus(),60);
+}
+function closeSheet(){ $('#scrim').classList.remove('open'); $('#sheet').classList.remove('open'); }
+$('#scrim').addEventListener('click', closeSheet);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSheet(); });
+
+function campaignForm(c){
+  const isNew = !c; c = c || {name:'Sponsor ('+(state.campaigns.length+1)+')', start:'', end:'', adCost:''};
+  openSheet(`
+    <h3 id="sheetTitle">${isNew?'حملة جديدة':'تعديل الحملة'}</h3>
+    <div class="grid">
+      <label class="full">اسم الحملة<input id="cName" value="${esc(c.name)}"></label>
+      <label>من<input id="cStart" type="date" value="${esc(c.start)}"></label>
+      <label>إلى<input id="cEnd" type="date" value="${esc(c.end)}"></label>
+      <label class="full">تكلفة الإعلان المدفوعة<input id="cAd" type="number" inputmode="decimal" min="0" value="${esc(c.adCost)}"></label>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="actions">
+      <button class="btn" id="save">${isNew?'إضافة الحملة':'حفظ التعديل'}</button>
+      <button class="btn ghost" id="cancel">إلغاء</button>
+      <span class="spacer"></span>
+      ${isNew?'':'<button class="btn danger" id="del">حذف</button>'}
+    </div>`, ()=>{
+    $('#cancel').onclick = closeSheet;
+    $('#save').onclick = async ()=>{
+      const name = $('#cName').value.trim();
+      if(!name){ $('#err').textContent='اكتب اسم الحملة.'; return; }
+      const obj = {...(isNew?{createdAt:Date.now()}:c), name, start:$('#cStart').value, end:$('#cEnd').value, adCost:+$('#cAd').value||0};
+      try{ await store.save('campaigns', obj); closeSheet();
+        if(isNew){ const found = state.campaigns.find(x=>x.name===name && x.createdAt===obj.createdAt); if(found){ state.selected=found.id; render(); } }
+      }catch(e){ $('#err').textContent='ما اتحفظش. جرّب تاني.'; }
+    };
+    if(!isNew) $('#del').onclick = async ()=>{
+      const n = state.orders.filter(o=>o.campaignId===c.id).length;
+      if(!confirm(`حذف «${c.name}»${n?' و'+n+' طلب فيها':''}؟`)) return;
+      try{
+        for(const o of state.orders.filter(o=>o.campaignId===c.id)) await store.remove('orders', o.id);
+        await store.remove('campaigns', c.id); state.selected='all'; closeSheet();
+      }catch(e){ $('#err').textContent='ما اتحذفش. جرّب تاني.'; }
+    };
+  });
+}
+
+function orderForm(o){
+  const isNew = !o;
+  const campId = o ? o.campaignId : (state.selected!=='all' ? state.selected : (sortedCampaigns()[0]||{}).id);
+  const nextNum = cid => Math.max(0, ...state.orders.filter(x=>x.campaignId===cid).map(x=>+x.num||0)) + 1;
+  o = o || {num:nextNum(campId), campaignId:campId, customer:'', city:'', sale:'', shipCharged:'', purchase:'', cost:'', status:'done'};
+  const campOpts = sortedCampaigns().map(c=>`<option value="${esc(c.id)}" ${c.id===o.campaignId?'selected':''}>${esc(c.name)}</option>`).join('');
+  let status = o.status || 'done';
+  const seg = Object.entries(STATUS).map(([k,v])=>`<button type="button" data-st="${k}" aria-pressed="${k===status}">${v}</button>`).join('');
+  openSheet(`
+    <h3 id="sheetTitle">${isNew?'طلب جديد':'تعديل طلب '+esc(o.num)}</h3>
+    <div class="grid">
+      <label>اسم العميل<input id="oCust" value="${esc(o.customer)}"></label>
+      <label>المدينة<input id="oCity" value="${esc(o.city)}"></label>
+      <label class="big">بعته بكام<input id="oSale" type="number" inputmode="decimal" value="${esc(o.sale)}"></label>
+      <label class="big">اشتريته بكام<input id="oBuy" type="number" inputmode="decimal" value="${esc(o.purchase)}"></label>
+      <label class="full">مصاريف دفعتها (شحن وغيره)<input id="oCost" type="number" inputmode="decimal" placeholder="0" value="${esc(o.cost)}"></label>
+      <div class="full"><label>الطلب فين دلوقتي</label><div class="seg" id="oSeg">${seg}</div></div>
+      <details ${isNew?'':'open'}><summary>تفاصيل أكتر</summary>
+        <div class="grid">
+          <label>الحملة<select id="oCamp">${campOpts}</select></label>
+          <label>رقم الطلب<input id="oNum" type="number" inputmode="numeric" value="${esc(o.num)}"></label>
+          <label class="full">شحن على العميل<input id="oShip" type="number" inputmode="decimal" value="${esc(o.shipCharged)}"></label>
+        </div>
+      </details>
+    </div>
+    <div class="preview" id="prev"></div>
+    <div class="err" id="err"></div>
+    <div class="actions">
+      <button class="btn" id="save">${isNew?'حفظ الطلب':'حفظ التعديل'}</button>
+      <button class="btn ghost" id="cancel">إلغاء</button>
+      <span class="spacer"></span>
+      ${isNew?'':'<button class="btn danger" id="del">حذف</button>'}
+    </div>`, ()=>{
+    const read = ()=>({...o, campaignId:$('#oCamp').value, num:+$('#oNum').value||'', customer:$('#oCust').value.trim(),
+      city:$('#oCity').value.trim(), sale:+$('#oSale').value||0, purchase:+$('#oBuy').value||0, cost:+$('#oCost').value||0,
+      shipCharged:+$('#oShip').value||0, status});
+    const upd = ()=>{ const p=orderProfit(read());
+      $('#prev').innerHTML = `هتكسب: <b class="num ${p<0?'loss':'gain'}">${fmt(p)}</b>` +
+        (status==='returned' ? ' <small>(المرتجع بيتحسب عليك مصاريفه بس)</small>' : ''); };
+    $('#sheet').addEventListener('input', upd); upd();
+    $('#oSeg').addEventListener('click', e=>{ const b=e.target.closest('[data-st]'); if(!b) return; status=b.dataset.st;
+      $('#oSeg').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x===b)); upd(); });
+    $('#oCamp').onchange = ()=>{ if(isNew) $('#oNum').value = nextNum($('#oCamp').value); upd(); };
+    $('#cancel').onclick = closeSheet;
+    $('#save').onclick = async ()=>{
+      const v = read();
+      if(!v.sale && v.status!=='returned'){ $('#err').textContent='اكتب سعر البيع.'; return; }
+      if(isNew) v.createdAt = Date.now();
+      try{ await store.save('orders', v); closeSheet(); }catch(e){ $('#err').textContent='ما اتحفظش. جرّب تاني.'; }
+    };
+    if(!isNew) $('#del').onclick = async ()=>{
+      if(!confirm('حذف الطلب ده؟')) return;
+      try{ await store.remove('orders', o.id); closeSheet(); }catch(e){ $('#err').textContent='ما اتحذفش. جرّب تاني.'; }
+    };
+  });
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e=>{
+  const chip = e.target.closest('[data-sel]'); if(chip){ state.selected = chip.dataset.sel; render(); return; }
+  if(e.target.closest('#addCamp') || e.target.closest('#firstCamp')){ campaignForm(); return; }
+  if(e.target.closest('#editCamp')){ campaignForm(state.campaigns.find(c=>c.id===state.selected)); return; }
+  const row = e.target.closest('.order'); if(row){ orderForm(state.orders.find(o=>o.id===row.dataset.id)); }
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && e.target.classList && e.target.classList.contains('order')) orderForm(state.orders.find(o=>o.id===e.target.dataset.id));
+});
+$('#fab').onclick = ()=>orderForm();
+$('#xport').onclick = async ()=>{
+  if(!window.XLSX){ setBanner('ملف الـ Excel مش جاهز. اعمل تحديث للصفحة.'); return; }
+  const cname = id => (state.campaigns.find(c=>c.id===id)||{}).name || '';
+  const orders = [...state.orders].sort((a,b)=>cname(a.campaignId).localeCompare(cname(b.campaignId)) || (+a.num||0)-(+b.num||0));
+  const oRows = [['رقم','الحملة','اسم العميل','المدينة','سعر البيع','سعر الشراء','مصاريف عليك','شحن على العميل','الحالة','المكسب']]
+    .concat(orders.map(o=>[o.num, cname(o.campaignId), o.customer, o.city, +o.sale||0, +o.purchase||0, +o.cost||0, +o.shipCharged||0, STATUS[o.status]||'', orderProfit(o)]));
+  const cRows = [['الحملة','من','إلى','تكلفة الإعلان','عدد الطلبات','المبيعات','مكسب قبل الإعلان','الصافي بعد الإعلان']]
+    .concat(sortedCampaigns().map(c=>{ const t=totals(state.orders.filter(o=>o.campaignId===c.id),[c]);
+      return [c.name, c.start||'', c.end||'', +c.adCost||0, t.count, t.sales, t.profit, t.net]; }));
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.aoa_to_sheet(oRows), ws2 = XLSX.utils.aoa_to_sheet(cRows);
+  ws1['!cols'] = [6,14,16,14,11,11,12,13,11,11].map(w=>({wch:w})); ws2['!cols'] = [14,11,11,12,11,12,15,17].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws1, 'الطلبات'); XLSX.utils.book_append_sheet(wb, ws2, 'الحملات');
+  wb.Workbook = {Views:[{RTL:true}]};
+  const buf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  const name = 'دفتر-الطلبات-'+new Date().toISOString().slice(0,10)+'.xlsx';
+  try{
+    const dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
+    if(dl){ await dl.save({filename:name, data:new Uint8Array(buf)}); return; }
+  }catch(e){ if(e && e.code==='declined') return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([buf])); a.download=name; a.click();
+};
+
+/* ---------- Excel import ---------- */
+const REV = {'اتسلّم':'done','اتسلم':'done','في الطريق':'pending','مرتجع':'returned'};
+const toNum = v => { const n = parseFloat(String(v ?? '').replace(/,/g,'')); return isFinite(n) ? n : 0; };
+function toDate(v){
+  if(typeof v==='number' && v>20000) return new Date(Math.round((v-25569)*86400000)).toISOString().slice(0,10);
+  const s = String(v ?? '').trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : '';
+}
+function sheetRows(wb, name){
+  const ws = wb.Sheets[name]; if(!ws) return null;
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+  const h = rows.findIndex(r => r.some(v => String(v).trim()==='الحملة'));
+  if(h<0) return null;
+  const head = rows[h].map(v => String(v).trim());
+  const at = (r,k) => { const i = head.indexOf(k); return i<0 ? '' : (r[i] ?? ''); };
+  return {at, rows: rows.slice(h+1)};
+}
+function parseWorkbook(wb){
+  const out = {campaigns:[], orders:[]}; const seen = new Set();
+  const cs = sheetRows(wb,'الحملات');
+  if(cs) for(const r of cs.rows){
+    const name = String(cs.at(r,'الحملة')).trim(); if(!name || seen.has(name)) continue; seen.add(name);
+    out.campaigns.push({name, start:toDate(cs.at(r,'من')), end:toDate(cs.at(r,'إلى')), adCost:toNum(cs.at(r,'تكلفة الإعلان'))});
+  }
+  const os = sheetRows(wb,'الطلبات');
+  if(os) for(const r of os.rows){
+    const customer = String(os.at(r,'اسم العميل')).trim(), sale = toNum(os.at(r,'سعر البيع')), cost = toNum(os.at(r,'مصاريف عليك'));
+    if(!customer && !sale && !cost) continue;
+    const campaign = String(os.at(r,'الحملة')).trim();
+    if(campaign && !seen.has(campaign)){ seen.add(campaign); out.campaigns.push({name:campaign, start:'', end:'', adCost:0}); }
+    out.orders.push({num: toNum(os.at(r,'رقم')) || '', campaign, customer, city: String(os.at(r,'المدينة')).trim(), sale,
+      purchase: toNum(os.at(r,'سعر الشراء')), cost, shipCharged: toNum(os.at(r,'شحن على العميل')),
+      status: REV[String(os.at(r,'الحالة')).trim()] || 'done'});
+  }
+  return out;
+}
+$('#ximport').onclick = ()=>{ $('#xfile').value=''; $('#xfile').click(); };
+$('#xfile').onchange = async e=>{
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  if(!window.XLSX || !store){ setBanner('البرنامج لسه بيحمّل. جرّب كمان شوية.'); return; }
+  let parsed;
+  try{ parsed = parseWorkbook(XLSX.read(await f.arrayBuffer())); }
+  catch(err){ setBanner('مقدرتش أقرا الملف ده. اتأكد إنه ملف Excel فيه شيت «الطلبات».'); return; }
+  if(!parsed.orders.length && !parsed.campaigns.length){ setBanner('الملف مفيهوش طلبات ولا حملات. اتأكد إن أسماء الشيتات «الطلبات» و«الحملات».'); return; }
+  if(!confirm(`الملف فيه ${parsed.campaigns.length} حملة و${parsed.orders.length} طلب.\nده هيستبدل كل اللي في البرنامج دلوقتي بمحتوى الملف. تكمل؟`)) return;
+  try{
+    const oldO = [...state.orders], oldC = [...state.campaigns];
+    const total = oldO.length + oldC.length + parsed.campaigns.length + parsed.orders.length; let done = 0;
+    const tick = ()=>setBanner(`جاري التحديث من الملف… ${++done} من ${total}`);
+    for(const o of oldO){ await store.remove('orders', o.id); tick(); }
+    for(const c of oldC){ await store.remove('campaigns', c.id); tick(); }
+    const ids = {};
+    for(const c of parsed.campaigns){ ids[c.name] = await store.save('campaigns', {...c, createdAt:Date.now()}); tick(); }
+    for(const o of parsed.orders){ const {campaign, ...rest} = o; await store.save('orders', {...rest, campaignId: ids[campaign] || '', createdAt:Date.now()}); tick(); }
+    state.selected = 'all'; render();
+    setBanner(`اتحدّث من الملف: ${parsed.campaigns.length} حملة و${parsed.orders.length} طلب.`);
+  }catch(err){ setBanner('حصلت مشكلة وهو بيحدّث. ارفع الملف تاني.'); }
+};
+
+init();
+})();
+</script>
+</body>
+</html>
